@@ -14,8 +14,8 @@ This web-app helps you record your bromine spa chemical levels.
 ## What this does
 
 If you have a bromine-based spa (hot tub), you have to measure and adjust the chemical levels. I wrote this web-app because the other apps made it all too complicated...
-1. **I want to know the previous reading, to make this reading easier.**
-   * Example: if last week it was 150ppm alkalinity, then today it'll probable be about the same. I can rapidly drop in 12 drops of testing chemical, and then be slower and swirl more carefully for the next few drops.
+1. **I want to know the previous reading, to make the next reading easier.**
+   * Example: if last week it was 150ppm alkalinity, then today it'll probable be about the same. I can rapidly drop in 12 drops of testing chemical, and then be slower and swirl more carefully for the next few drops. This web-app only has four slides for the four chemicals, so when you relaunch it, you'll see what they were last time.
 2. **I want to quickly record the reading.** I don't want to click through multiple screens. And if my [Taylor testing kit](https://www.amazon.com/Taylor-Swimming-Chlorine-Alkalinity-Hardness/dp/B001DNXK78) only gives ppm readings to the nearest 10, there's no point letting me record with higher precision.
 3. **I want to do readings in a simple sequence.** There's a sequence: you measure alkalinity, then adjust it, then measure again, then measure pH, and so on. If an app asks for *all* measurements before telling you to adjust the first one, then the other measurements were just throw-away work that has to be redone!
    * There are few exceptions, which the footnote on this web-app remind you of - for instance, shock needs pH 7.2--7.6.
