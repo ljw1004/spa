@@ -1,0 +1,279 @@
+<html style="height: 100%; width: 100%; margin: 0">
+  <head>
+    <title>Spa chemicals</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <style type="text/css">
+      html {
+        font-family: sans-serif;
+        --track-width: 10px;
+        --thumb-height: 36px;
+        --thumb-width: 62px;
+        --bad-background: #C00;
+        --ok-background: #FD0;
+        --ideal-background: #0B5;
+      }
+      input[type="range"] {
+        -webkit-appearance: none;
+        transform: rotate(90deg);
+        width: 100%;
+      }
+      .label {font-size:9px; color: gray; font-family: sans-serif;}
+      .marks { position: absolute;}
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: var(--track-width);
+        pointer-events: none; /* click on trackbar does nothing */
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        border: 1px solid black;
+        border-radius: 8px;
+        height: var(--thumb-width); /* really the width, after rotation */
+        margin-top: -24px; /* moves the thumb left or right compared to the track, after rotation */
+        width: var(--thumb-height); /* really the height, after rotation */
+        background: #EEE;
+        cursor: pointer;
+        pointer-events: auto !important; /* click on thumb does work */
+      }
+      .thumb {
+        border: 1px solid black;
+        border-radius: 8px;
+        background: royalblue;
+        cursor: pointer;
+        pointer-events: none;
+        font-size: 20px;
+        color: black;
+        text-align: center;
+        font-family: sans-serif;
+        position: absolute;
+      }
+      .title {text-align: center; vertical-align: top; font-size: 18px; }
+      #saturation {text-align: center; vertical-align: top; font-size: 12px; color: #DDF; }
+      .alk {color: #c1d892;}
+      .ph {color: #ff82d6;}
+      .calcium {color: #b1d7eb;}
+      .bromine {color: #f4f286;}
+      #rubric {text-align: center; vertical-align: bottom; font-size: 11px; color: #999; }
+      #popup {
+        position:absolute;
+        width: 90%;
+        height: 90%;
+        top: 2%;
+        left: 5%;
+        background-color: #113;
+        border: 2px solid #AAA;
+        overflow:auto;
+        display:none;
+      }
+    </style>
+    <script>
+      let record = (() => {try {return JSON.parse(localStorage.getItem('record') || '{}')} catch (e) {return {}}})();
+      // record is a list of past and current readings, most recent first, e.g. {alk:[{time:_,value:_},...], ph:[...], ...}
+
+      window.onresize = resize;
+
+      values = {
+        alk: {values:[0,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,220,240], min:60, min_ideal:100, max_ideal:120, max:180},
+        ph: {values:[6.2,6.4,6.6,6.8,7.0,7.2,7.4,7.6,7.8,8.0,8.2,8.4], min:7.2, min_ideal:7.4, max_ideal:7.6, max:7.8},
+        calcium: {values:[0, 50, 80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250,260,270,280,290,300,350,400,450,500,550,600,650,700,750,800], min:100, min_ideal:150, max_ideal:250, max:800},
+        bromine: {values:[0,1,2,3,4,5,6,10,15,20], min:2, min_ideal:2, max_ideal:4, max:8}
+      }
+
+      function update_record(name, value) {
+        if (!(name in record)) record[name]=[];
+        const now = Date.now();
+        const five_mins = 5 * 60 * 1000;
+        const len = record[name].length;
+        if (len > 0) {
+          if (record[name][0].time > now - five_mins) {
+            record[name][0] = {time:now, value:value};
+            return;
+          }
+        }
+        const maxlen = 100;
+        if (len > maxlen) record[name].splice(maxlen, len - maxlen);
+        record[name].unshift({time:now, value:value});
+      }
+
+      function render_greys() {
+        // we'll color light any reading on this calendar day, grey any reading older than that (or absent)
+        const t = new Date();  t.setHours(0,0,0,0);
+        let morning = t.valueOf();
+        for (const name in values) {
+          const is_recent = ((record[name] || []).length > 0) && record[name][0].time > morning;
+          const input = document.getElementById(`${name}_thumb`);
+          input.style.backgroundColor = is_recent ? '#EEE' : '#999';
+        }
+      }
+
+      function saturation(alk_ppm, ph, calcium_ppm, temp_f) {
+        if (alk_ppm <= 0 || calcium_ppm <= 0) return -1;
+        const AF = 0.4341 * Math.log(alk_ppm) + 0.0074;        
+        const CF = 0.4341 * Math.log(calcium_ppm) - 0.3926;
+        const TF = -0.0000005 * temp_f*temp_f*temp_f + 0.00006 * temp_f*temp_f + 0.0117 * temp_f - 0.4116;
+        return ph + TF + CF + AF - 12.1;
+      }
+
+      function render_input(input, name) {
+        const parent = input.parentElement;
+        const i = input.valueAsNumber;
+        const metric = values[parent.className];
+        const value = metric.values[metric.values.length - i - 1];
+        const thumb_height = parseInt(getComputedStyle(parent).getPropertyValue('--thumb-height'));
+        const thumb_width = parseInt(getComputedStyle(parent).getPropertyValue('--thumb-width'));
+        const thumb = document.getElementById(`${parent.className}_thumb`);
+        const box = parent.getBoundingClientRect();
+        const center = box.left + box.width/2;
+        const track_top = box.top + thumb_height/2 + 2;
+        const notch_height = (box.height - thumb_height) / (metric.values.length - 1);
+        const thumb_top = track_top + i*notch_height - thumb_height/2;
+        thumb.style.top=`${thumb_top}px`;
+        thumb.style.height=`${thumb_height-2}px`;
+        thumb.style.lineHeight=`${thumb_height-2}px`; // has the effect of vertically centering
+        thumb.style.left=`${center - thumb_width/2}px`;
+        thumb.style.width=`${thumb_width-2}px`;
+        thumb.innerText = value;
+        // saturation index
+        const alk = parseFloat(document.getElementById('alk_thumb').innerText);
+        const ph = parseFloat(document.getElementById('ph_thumb').innerText);
+        const calcium = parseFloat(document.getElementById('calcium_thumb').innerText);
+        const sat_min = -0.3;
+        const sat_max = 0.5;
+        sat60 = saturation(alk, ph, calcium, 60);
+        sat97 = saturation(alk, ph, calcium, 97);
+        style60 = (sat60 < sat_min || sat60 > sat_max) ? "color:#F55;" : "";
+        style97 = (sat97 < sat_min || sat97 > sat_max) ? "color:#F55;" : "";
+        document.getElementById('saturation').innerHTML = `Saturation: <span style="${style60}">${sat60.toFixed(1)} at 60&deg;F</span>, <span style="${style97}">${sat97.toFixed(1)} at 97&deg;F</span> (range ${sat_min}...${sat_max})`;
+      }
+
+      function change(input, name) {
+        const parent = input.parentElement;
+        const i = input.valueAsNumber;
+        const metric = values[parent.className];
+        const value = metric.values[metric.values.length - i - 1];
+
+        render_input(input, name);
+        update_record(name, value);
+        render_greys();
+        localStorage.setItem('record', JSON.stringify(record));
+      }
+
+      function resize() {   
+        let html = "";
+        for (const input of document.getElementsByTagName("input")) {
+          const parent = input.parentElement;
+          const metric = values[parent.className];
+          const track_width = parseInt(getComputedStyle(parent).getPropertyValue('--track-width'));
+          const thumb_height = parseInt(getComputedStyle(parent).getPropertyValue('--thumb-height'));
+          const thumb_width = parseInt(getComputedStyle(parent).getPropertyValue('--thumb-width'));
+          const colors = {
+            background: {
+              bad: getComputedStyle(parent).getPropertyValue('--bad-background'),
+              ok: getComputedStyle(parent).getPropertyValue('--ok-background'),
+              ideal: getComputedStyle(parent).getPropertyValue('--ideal-background')
+            }
+          }
+          // set up the range input
+          const box = parent.getBoundingClientRect();
+          input.style.position = "absolute";
+          input.style.left = `${-box.height/2 + box.width/2 + box.left}px`;
+          input.style.top = `${box.top + box.height/2}px`;
+          input.style.width = `${box.height}px`;
+          input.style.height = "0";
+          input.setAttribute('max', metric.values.length - 1);
+          input.oninput = () => {change(input, parent.className)};
+          // draw notches
+          const center = box.left + box.width/2;
+          const top = box.top + thumb_height/2 + 2;
+          const height = (box.height - thumb_height) / (metric.values.length - 1);
+          for (let i=0; i<metric.values.length; i++) {
+            const top_value = metric.values[metric.values.length - i - 1];
+            const bot_value = metric.values[metric.values.length - i - 2];
+            const disposition = (bot_value >= metric.min_ideal && bot_value < metric.max_ideal) ? 'ideal' : (bot_value >= metric.min && bot_value < metric.max) ? 'ok' : 'bad';
+            const background = colors.background[disposition];
+            if (i < metric.values.length - 1) {
+              html += `<div class="notch" style="position:absolute; left:${center - track_width/2}; top:${top + i*height}; width:${track_width}; height:${height-1}; background-color:${background};"></div>`;
+            }
+            html += `<div class="label" style="position:absolute; left:${center + track_width/2 + 4}; top:${top + i*height - 7}; width: 50; height: 1ex; overflow: none">${top_value}</div>`;
+          }
+        }
+        document.getElementById('marks').innerHTML = html;
+        for (const input of document.getElementsByTagName("input")) {
+          const parent = input.parentElement;
+          render_input(input, parent.className);
+        }
+      }
+
+      function popup(show) {
+        document.getElementById('popup').style.display = show ? 'block' : 'none';
+      }
+
+      window.addEventListener('load', () => {
+        resize();
+        for (const name in values) {
+          const input = document.getElementById(`${name}_input`);
+          const value = (record[name] || []).length > 0 ? record[name][0].value : -1;
+          let i = values[name].values.indexOf(value);
+          if (i == -1) i = values[name].values.indexOf(values[name].min_ideal);
+          i = values[name].values.length - i - 1;
+          input.value = i;
+          render_input(input, name);
+        }
+        render_greys();
+      });
+
+      document.addEventListener("visibilitychange", function() {
+        if (document.visibilityState === 'visible') {
+          render_greys();
+        }
+      });
+
+    </script>
+  </head>
+  <body style="margin: 0; background-color: black; color: white; overflow:hidden;">
+    <div id="marks"></div>
+    <table style="height: 100%; width: 100%; border-spacing: 0">
+      <tr onmousedown="popup(true);" class="title" style="height: 1ex;">
+        <td class="alk">Alkalinity</td>
+        <td class="ph">pH</td>
+        <td class="calcium">Calcium</td>
+        <td class="bromine">Bromine</td>
+      </tr>
+      <tr style="height: 80%">
+        <td class="alk" style="width: 25%;">
+          <input id="alk_input" type="range" />
+          <div id="alk_thumb" class="thumb" ></div>
+        </td>
+        <td class="ph" style="width: 25%">
+          <input id="ph_input" type="range" />
+          <div id="ph_thumb" class="thumb"></div>
+        </td>
+        <td class="calcium" style="width: 25%">
+          <input id="calcium_input" type="range" />
+          <div id="calcium_thumb" class="thumb"></div>
+        </td>
+        <td class="bromine" style="width: 25%">
+          <input id="bromine_input" type="range" />
+          <div id="bromine_thumb" class="thumb"></div>
+        </td>
+      </tr>
+      <tr style="height: 16px; overflow:none;">
+        <td onmousedown="popup(true);" id="saturation" colspan="4">Saturation index</td>
+      </tr>
+      <tr style="height: 22px; overflow:none;">
+        <td onmousedown="popup(true);" id="rubric" colspan="4">Notes: If pH < 7, bring it up before adjusting others; Shock and bromine need pH 7.2&ndash;7.6; pH decreaser needs alkalinity > 125<br/>&nbsp;</td>
+      </tr>
+    </table>
+    <div id="popup" onmousedown="popup(false);">
+      <div style="margin: 2ex;"><h2>Simple spa chemicals</h2>
+    <p>Use this app to record chemical levels in your bromine-based residential spa.</p>
+    <p>You'll normally work from left to right: measure alkalinity, adjust as necessary and re-measure, then pH, and so on.</p>
+    <p>The slider is white if you've measured today, grey if you haven't.</p>
+    <p>The red/yellow/green levels show min, ideal and max recommendations by the Association of Pool and Spa Professionals.
+      The <em>Saturation Index</em> says whether the water is corrosive to pipes (too low) or scaling (too high),
+      recommended by Taylor Technologies.
+    </p>
+    </div>
+  </div>
+  </body>
+</html>
