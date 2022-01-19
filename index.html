@@ -65,6 +65,8 @@
         overflow:auto;
         display:none;
       }
+      a {color: white;}
+      a:visited {color:white;}
     </style>
     <script>
       let record = (() => {try {return JSON.parse(localStorage.getItem('record') || '{}')} catch (e) {return {}}})();
@@ -264,8 +266,8 @@
         <td onmousedown="popup(true);" id="rubric" colspan="4">Notes: If pH < 7, bring it up before adjusting others; Shock and bromine need pH 7.2&ndash;7.6; pH decreaser needs alkalinity > 125<br/>&nbsp;</td>
       </tr>
     </table>
-    <div id="popup" onmousedown="popup(false);">
-      <div style="margin: 2ex;"><h2>Simple spa chemicals</h2>
+    <div id="popup">
+      <div style="margin: 2ex;"><h2><a href="https://github.com/ljw1004/spa/blob/main/README.md">Simple spa chemicals</a></h2>
     <p>Use this app to record chemical levels in your bromine-based residential spa.</p>
     <p>You'll normally work from left to right: measure alkalinity, adjust as necessary and re-measure, then pH, and so on.</p>
     <p>The slider is white if you've measured today, grey if you haven't.</p>
@@ -273,6 +275,7 @@
       The <em>Saturation Index</em> says whether the water is corrosive to pipes (too low) or scaling (too high),
       recommended by Taylor Technologies.
     </p>
+    <button onclick="popup(false)">ok</button>
     </div>
   </div>
   </body>
